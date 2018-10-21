@@ -79,7 +79,6 @@ def GetImageMaskData(file_xml,dcm_files,new_dims):
         rr, cc = polygon(ys, xs)
         zind = mask.shape[0]-ind-1
         mask[zind,rr, cc] = 1
-        import pdb; pdb.set_trace()
     return im_vol,mask
 
 
@@ -88,7 +87,7 @@ def GetImageMaskData(file_xml,dcm_files,new_dims):
 # os.chdir(os.path.join('/Users/ln30/Dropbox/Radiology/Research/UpworkClient'))
 # root_dir = '/Volumes/Seagate/radiology/research/liversegmentation/SSFSE_JKB01_165'
 
-root_dir = '/Volumes/Seagate/radiology/research/liversegmentation/temp_run'
+root_dir = '/Volumes/Seagate/radiology/research/liversegmentation/SSFSE_JKB01_165'
 
 os.chdir(os.path.join(root_dir))
 output_dir = os.path.join(root_dir, 'output')
