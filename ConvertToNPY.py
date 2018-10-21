@@ -16,6 +16,7 @@ from VisTools import multi_slice_viewer0, mask_viewer0
 import zipfile
 import shutil
 
+
 # set desired in-plane dimensions
 new_dims = (512,512)
 
@@ -43,13 +44,11 @@ def GetImageMaskData(file_xml,dcm_files,new_dims):
     roi_list = doc['plist']['dict']['array']['dict']
     # parse out the image shape
     # imshape = (int(roi_list[0]['integer'][0]),int(roi_list[0]['integer'][3]))
-
     # get slice locations of all dicoms
     locs = [(d,float(dcm.dcmread(d).SliceLocation)) for d in dcm_files]
     # sort
     locs.sort(key=itemgetter(1))
     dcm_files = [l[0] for l in locs]
-
     # load dicoms into volume
     image_volume = np.stack([dcm.dcmread(d).pixel_array for d in dcm_files]).astype(np.float)
     # normalize by image
@@ -57,27 +56,26 @@ def GetImageMaskData(file_xml,dcm_files,new_dims):
         im = image_volume[i]
         im /= np.max(im)
         image_volume[i] = im
-
     # resample image volume to desired dimensions
     output_shape = (image_volume.shape[0],new_dims[0],new_dims[1])
     im_vol = resize(image_volume,output_shape)
-
     # convert contours into masks
     # make empty mask
     mask = np.zeros(output_shape)
     # import pdb; pdb.set_trace()
-
     # calculate rescaling factor in each dimension
     x_scale = float(new_dims[1])/float(image_volume.shape[2])
     y_scale = float(new_dims[0])/float(image_volume.shape[1])
-
     # loop over ROIs
     for cur_roi in roi_list:
         ind,x,y = GetROIcoords(cur_roi)
         xs = [d*x_scale for d in x]
         ys = [d*y_scale for d in y]
         rr, cc = polygon(ys, xs)
-        zind = mask.shape[0]-ind-1
+        # one of these two lines determines
+        #  z-axis orientation of the mask
+        # zind = mask.shape[0]-ind-1 # use this for non-reverse
+        zind = ind # use this for reverse
         mask[zind,rr, cc] = 1
     return im_vol,mask
 
@@ -87,7 +85,9 @@ def GetImageMaskData(file_xml,dcm_files,new_dims):
 # os.chdir(os.path.join('/Users/ln30/Dropbox/Radiology/Research/UpworkClient'))
 # root_dir = '/Volumes/Seagate/radiology/research/liversegmentation/SSFSE_JKB01_165'
 
-root_dir = '/Volumes/Seagate/radiology/research/liversegmentation/SSFSE_JKB01_165'
+root_dir = '/Volumes/Seagate/radiology/research/liversegmentation/SSFSE_reviewed/reverse/ok'
+# root_dir = '/Volumes/Seagate/radiology/research/liversegmentation/temp_run'
+# root_dir = os.path.join('C:\\Users','Johns','Box','UpworkClient','SampleData2')
 
 os.chdir(os.path.join(root_dir))
 output_dir = os.path.join(root_dir, 'output')
@@ -102,8 +102,6 @@ sub_dirs = glob(os.path.join(os.getcwd(),'*'))
 
 
 for data_dir in sub_dirs:
-
-
     path_to_zip_file = glob(os.path.join(data_dir, '*.zip'))
     path_to_zip_file = path_to_zip_file[0]
     directory_to_extract_to = path_to_zip_file.replace('.zip', '')
@@ -135,9 +133,13 @@ for data_dir in sub_dirs:
 
     # find dicom files
     temp_dir = glob(os.path.join(data_dir,'*',''))
+
+    #### Comment out the below for some of the files.
     temp_dir = glob(os.path.join(temp_dir[0],'*',''))
     temp_dir = glob(os.path.join(temp_dir[0],'*',''))
-    
+    #### End
+
+
     dicom_dirs = natsorted(glob(os.path.join(temp_dir[0],'*','')))
     # get current subject set of dicom files
     cur_dcm_files = glob(os.path.join(dicom_dirs[cur_subj], "*.dcm"))
@@ -162,7 +164,7 @@ for data_dir in sub_dirs:
     np.save(target_name,maskvol)
 
     print(subject_basename)
-    plt.show()
+    # plt.show()
 
 
     
