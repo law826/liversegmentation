@@ -20,6 +20,12 @@ import shutil
 # set desired in-plane dimensions
 new_dims = (512,512)
 
+# turn plotting on or off
+display_plots = False
+
+# set z-axis orientation to normal or reversed
+z_reversed = True
+
 # function for loading coordinate data from ROI
 def GetROIcoords(roi):
     # get index of ROI
@@ -74,8 +80,10 @@ def GetImageMaskData(file_xml,dcm_files,new_dims):
         rr, cc = polygon(ys, xs)
         # one of these two lines determines
         #  z-axis orientation of the mask
-        # zind = mask.shape[0]-ind-1 # use this for non-reverse
-        zind = ind # use this for reverse
+        if z_reversed:
+            zind = ind
+        else:
+            zind = mask.shape[0]-ind-1
         mask[zind,rr, cc] = 1
     return im_vol,mask
 
@@ -149,10 +157,9 @@ for data_dir in sub_dirs:
     imvol, maskvol = GetImageMaskData(cur_xml_file,cur_dcm_files,new_dims)
 
     # # display
-    mask_viewer0(imvol,.5*maskvol)
-    # print data_dir
-    # plt.show()
-
+    if display_plots:
+        mask_viewer0(imvol,.5*maskvol)
+        plt.show()
 
     # save arrays as .npy
     # image_name = os.path.join(output_dir,'input{:04d}.npy'.format(cur_subj))
@@ -164,7 +171,6 @@ for data_dir in sub_dirs:
     np.save(target_name,maskvol)
 
     print(subject_basename)
-    # plt.show()
 
 
     
