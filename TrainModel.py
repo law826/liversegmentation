@@ -11,8 +11,8 @@ np.random.seed(seed=1)
 from glob import glob
 from natsort import natsorted
 import keras
-from keras.optimizers import Adam
-from keras.callbacks import ModelCheckpoint
+from keras.optimizers import Adam, RMSprop
+from keras.callbacks import ModelCheckpoint, LearningRateScheduler
 from keras.preprocessing.image import ImageDataGenerator
 
 # import custom functions and viewing tools
@@ -21,7 +21,7 @@ from KerasModel import BlockModel, dice_coef_loss
 
 #~# some parameters to set for training #~#
 # path to save best model weights
-model_version = 3
+model_version = 4
 model_weights_path = os.path.join(os.getcwd(),
                                   'BestModelWeights_dataset2_v{:02d}.h5'.format(model_version))
 # set number of unique subjects to be used for testing
@@ -31,7 +31,7 @@ val_num = 10
 # whether to use data augmentation or not
 augment = True
 # how many iterations of data to train on
-numEp = 50
+numEp = 100
 # augmentation factor
 augFact = 2
 
@@ -118,7 +118,7 @@ print('Target data loaded')
 
 # make model
 model = BlockModel(trainX.shape,filt_num=16,numBlocks=4)
-model.compile(optimizer=Adam(lr=1e-4), loss=dice_coef_loss)
+model.compile(optimizer=RMSprop(lr=1e-3), loss=dice_coef_loss)
 
 # setup image data generator
 if augment:
@@ -161,11 +161,17 @@ cb_check = ModelCheckpoint(model_weights_path,monitor='val_loss',
                                    verbose=0,save_best_only=True,
                                    save_weights_only=True,mode='auto',period=1)
 
+# make callback for learning rate schedule
+def Scheduler(epoch,lr):
+    jump = int(epoch/5)
+    return 1e-3 * (1/2)**jump
+cb_schedule = LearningRateScheduler(Scheduler)
+
 # train model
 history = model.fit_generator(datagen,
                     steps_per_epoch=steps,
                     epochs=numEp,
-                    callbacks=[cb_check],
+                    callbacks=[cb_check,cb_schedule],
                     verbose=1,
                     validation_data=(valX,valY))
 # load best weights
