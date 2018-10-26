@@ -21,7 +21,7 @@ from KerasModel import BlockModel, dice_coef_loss
 
 #~# some parameters to set for training #~#
 # path to save best model weights
-model_version = 4
+model_version = 5
 model_weights_path = os.path.join(os.getcwd(),
                                   'BestModelWeights_dataset2_v{:02d}.h5'.format(model_version))
 # set number of unique subjects to be used for testing
@@ -117,8 +117,8 @@ trainY = targets_train[...,np.newaxis]
 print('Target data loaded')
 
 # make model
-model = BlockModel(trainX.shape,filt_num=16,numBlocks=4)
-model.compile(optimizer=RMSprop(lr=1e-3), loss=dice_coef_loss)
+model = BlockModel(trainX.shape,filt_num=32,numBlocks=4)
+model.compile(optimizer=RMSprop(lr=2e-3), loss=dice_coef_loss)
 
 # setup image data generator
 if augment:
@@ -147,7 +147,7 @@ else:
 seed = 1
 datagen1.fit(trainX, seed=seed)
 datagen2.fit(trainY, seed=seed)
-batchsize = 32
+batchsize = 16
 datagen = zip( datagen1.flow( trainX, None, batchsize, seed=seed), datagen2.flow( trainY, None, batchsize, seed=seed) )
 
 # calculate number of batches
@@ -163,9 +163,9 @@ cb_check = ModelCheckpoint(model_weights_path,monitor='val_loss',
 
 # make callback for learning rate schedule
 def Scheduler(epoch,lr):
-    jump = int(epoch/5)
-    return 1e-3 * (1/2)**jump
-cb_schedule = LearningRateScheduler(Scheduler)
+    jump = int(epoch/10)
+    return 2e-3 * (1/2)**jump
+cb_schedule = LearningRateScheduler(Scheduler,verbose=1)
 
 # train model
 history = model.fit_generator(datagen,
