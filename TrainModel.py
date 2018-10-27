@@ -24,6 +24,8 @@ from KerasModel import BlockModel, dice_coef_loss
 model_version = 5
 model_weights_path = os.path.join(os.getcwd(),
                                   'BestModelWeights_dataset2_v{:02d}.h5'.format(model_version))
+# whether to reload previous weights before training
+reload_weights = True
 # set number of unique subjects to be used for testing
 test_num = 15
 # set number of unique subjects to to be used for validation
@@ -31,9 +33,9 @@ val_num = 10
 # whether to use data augmentation or not
 augment = True
 # how many iterations of data to train on
-numEp = 100
+numEp = 200
 # augmentation factor
-augFact = 2
+augFact = .5
 
 # set data directories
 dataset_dir = os.path.join('/home','bashirmllab','dataset2')
@@ -118,7 +120,9 @@ print('Target data loaded')
 
 # make model
 model = BlockModel(trainX.shape,filt_num=32,numBlocks=4)
-model.compile(optimizer=RMSprop(lr=2e-3), loss=dice_coef_loss)
+model.compile(optimizer=Adam(lr=1e-4), loss=dice_coef_loss)
+if reload_weights:
+    model.load_weights(model_weights_path)
 
 # setup image data generator
 if augment:
@@ -163,8 +167,9 @@ cb_check = ModelCheckpoint(model_weights_path,monitor='val_loss',
 
 # make callback for learning rate schedule
 def Scheduler(epoch,lr):
-    jump = int(epoch/10)
-    return 2e-3 * (1/2)**jump
+    if epoch % 10 == 0:
+        lr /= 2
+    return lr
 cb_schedule = LearningRateScheduler(Scheduler,verbose=1)
 
 # train model
