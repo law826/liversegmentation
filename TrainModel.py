@@ -6,6 +6,7 @@ from functools import reduce
 import operator
 from skimage.draw import polygon
 from scipy import interpolate
+import pickle
 import numpy as np
 np.random.seed(seed=1)
 from glob import glob
@@ -21,22 +22,20 @@ from KerasModel import BlockModel, dice_coef_loss
 
 #~# some parameters to set for training #~#
 # path to save best model weights
-model_version = 5
+model_version = 6
 model_weights_path = os.path.join(os.getcwd(),
                                   'BestModelWeights_dataset2_v{:02d}.h5'.format(model_version))
-# whether to reload previous weights before training
-reload_weights = True
 # set number of unique subjects to be used for testing
-test_num = 15
+test_num = 30
 # set number of unique subjects to to be used for validation
-val_num = 10
+val_num = 20
 # whether to use data augmentation or not
 augment = True
 # how many iterations of data to train on
 numEp = 200
 # augmentation factor
-augFact = .5
-
+augFact = 1
+reload_weights = False
 # set data directories
 dataset_dir = os.path.join('/home','bashirmllab','dataset2')
 subdirs = ['opposed','SSFSE','t1nfs']
@@ -94,32 +93,33 @@ train_target_groups = [f for i,f in enumerate(all_grouped_targets) if i not in t
 input_files_train = reduce(operator.add,train_input_groups)
 target_files_train = reduce(operator.add,train_target_groups)
 
+# write testing filenames to pickle file
+with open('test_input_files_v{:02d}.pkl'.format(model_version), 'wb') as f:
+    pickle.dump(input_files_test, f)
+with open('test_target_files_v{:02d}.pkl'.format(model_version), 'wb') as f:
+    pickle.dump(target_files_test, f)
+
 # load input data
 print('Loading input data...')
-inputs_test = np.concatenate([np.load(f) for f in input_files_test])
 inputs_val = np.concatenate([np.load(f) for f in input_files_val])
 inputs_train = np.concatenate([np.load(f) for f in input_files_train])
 # add singleton dimension for grayscale channel
-testX = inputs_test[...,np.newaxis]
 valX = inputs_val[...,np.newaxis]
 trainX = inputs_train[...,np.newaxis]
 print('Input data loaded')
 print('{} training slices'.format(trainX.shape[0]))
 print('{} validation slices'.format(valX.shape[0]))
-print('{} testing slices'.format(testX.shape[0]))
 # load target data
 print('Loading target data...')
-targets_test = np.concatenate([np.load(f) for f in target_files_test])
 targets_val = np.concatenate([np.load(f) for f in target_files_val])
 targets_train = np.concatenate([np.load(f) for f in target_files_train])
 # add singleton dimension for grayscale channel
-testY = targets_test[...,np.newaxis]
 valY = targets_val[...,np.newaxis]
 trainY = targets_train[...,np.newaxis]
 print('Target data loaded')
 
 # make model
-model = BlockModel(trainX.shape,filt_num=32,numBlocks=4)
+model = BlockModel(trainX.shape,filt_num=16,numBlocks=4)
 model.compile(optimizer=Adam(lr=1e-4), loss=dice_coef_loss)
 if reload_weights:
     model.load_weights(model_weights_path)
@@ -167,7 +167,7 @@ cb_check = ModelCheckpoint(model_weights_path,monitor='val_loss',
 
 # make callback for learning rate schedule
 def Scheduler(epoch,lr):
-    if epoch % 10 == 0:
+    if epoch % 30 == 0 and epoch > 1:
         lr /= 2
     return lr
 cb_schedule = LearningRateScheduler(Scheduler,verbose=1)
@@ -176,11 +176,17 @@ cb_schedule = LearningRateScheduler(Scheduler,verbose=1)
 history = model.fit_generator(datagen,
                     steps_per_epoch=steps,
                     epochs=numEp,
-                    callbacks=[cb_check,cb_schedule],
+                    callbacks=[cb_check],
                     verbose=1,
                     validation_data=(valX,valY))
+# clear unneeded training data
+del trainX,trainY
 # load best weights
 model.load_weights(model_weights_path)
 # evaluate on test data
-score = model.evaluate(testX,testY,verbose=0)
+inputs_test = np.concatenate([np.load(f) for f in input_files_test])
+testX = inputs_test[...,np.newaxis]
+targets_test = np.concatenate([np.load(f) for f in target_files_test])
+testY = targets_test[...,np.newaxis]
+score = model.evaluate(testX,testY,verbose=1)
 print("Test Dice score is {:.03f}".format(1-score))
